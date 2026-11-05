@@ -3,7 +3,8 @@ import { X, Download, FileText, School, Calendar } from 'lucide-react';
 export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
   if (!isOpen || !note) return null;
 
-  const fileUrl = `http://localhost:5000${note.fileUrl}`;
+  const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const fileUrl = `${backendUrl}${note.fileUrl}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-sm animate-fadeIn">
