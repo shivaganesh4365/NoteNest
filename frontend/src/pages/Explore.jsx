@@ -127,8 +127,15 @@ export default function Explore() {
         updateUserCredits(credits);
       }
 
-      // 3. Trigger in-app blob download to save file locally
-      const response = await fetch(`http://localhost:5000${fileUrl}`);
+      // 3. Trigger in-app blob download using dynamic backend URL
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const cleanFileUrl = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
+      const response = await fetch(`${backendUrl}${cleanFileUrl}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -147,7 +154,7 @@ export default function Explore() {
       if (err.response?.status === 403) {
         setIsOutOfCreditsOpen(true);
       } else {
-        alert(err.response?.data?.message || 'Download error. Please check server connection.');
+        alert(err.response?.data?.message || err.message || 'Download error. Please check server connection.');
       }
     }
   };
