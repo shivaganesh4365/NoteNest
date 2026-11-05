@@ -1,0 +1,13 @@
+node_modules/
+**/node_modules/
+.env
+**/.env
+*.local
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/archived_uploads/*
+!backend/archived_uploads/.gitkeep
+frontend/dist/
+*.zip
+.DS_Store
+Thumbs.db
