@@ -16,11 +16,19 @@ function AppRoutes() {
       <Navbar />
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Explore />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
-          <Route path="/upload" element={user ? <UploadNote /> : <Navigate to="/login" />} />
-          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+          {/* If logged in, show Explore; otherwise redirect straight to /login */}
+          <Route path="/" element={user ? <Explore /> : <Navigate to="/login" replace />} />
+          
+          {/* Auth routes */}
+          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
+          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
+          
+          {/* Protected routes */}
+          <Route path="/upload" element={user ? <UploadNote /> : <Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
+
+          {/* Catch-all redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
