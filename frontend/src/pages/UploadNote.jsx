@@ -2,7 +2,7 @@ import { useState, useContext } from 'react';
 import API from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { UploadCloud, CheckCircle2, Tag } from 'lucide-react';
+import { UploadCloud, CheckCircle2, Tag, FileText, Sparkles } from 'lucide-react';
 
 export default function UploadNote() {
   const { updateUserCredits } = useContext(AuthContext);
@@ -19,8 +19,8 @@ export default function UploadNote() {
   const navigate = useNavigate();
 
   const handleFileChange = (e) => {
-    const selected = e.target.files[0];
-    if (selected && selected.type !== 'application/pdf') {
+    const selected = e.target.files?.[0];
+    if (selected && selected.type !== 'application/pdf' && !selected.name.toLowerCase().endsWith('.pdf')) {
       setError('Only PDF files are supported.');
       setFile(null);
       return;
@@ -36,6 +36,7 @@ export default function UploadNote() {
       return;
     }
 
+    setError('');
     setLoading(true);
     const data = new FormData();
     data.append('title', formData.title);
@@ -46,9 +47,7 @@ export default function UploadNote() {
     data.append('file', file);
 
     try {
-      const res = await API.post('/notes', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await API.post('/notes', data);
 
       // Update navbar credits balance with the +10 earned
       if (res.data.remainingCredits !== undefined) {
@@ -64,120 +63,152 @@ export default function UploadNote() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-12">
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold text-slate-900">Upload Study Material</h2>
-          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-            +10 Credits
-          </span>
+    <div className="relative isolate min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-10 sm:px-6 sm:py-14">
+      <div className="pointer-events-none absolute -top-32 left-1/2 -z-10 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-indigo-600/20 blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-cyan-500/10 blur-[110px]" />
+
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8 text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3.5 py-1.5 text-xs font-semibold text-indigo-300">
+            <Sparkles className="h-3.5 w-3.5" />
+            Share knowledge, earn credits
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            Upload study material
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">
+            Add your notes to the community library and help other students study smarter.
+          </p>
         </div>
-        <p className="text-sm text-slate-500 mb-6">Contribute your notes to help peers and earn download credits.</p>
 
-        {error && (
-          <div className="p-3 mb-4 rounded-xl bg-rose-50 text-rose-600 text-sm font-medium border border-rose-100">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Title</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Operating Systems - Unit 1 to 4 Notes"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-            />
+        <div className="glass-panel rounded-3xl border border-white/10 p-5 shadow-2xl shadow-indigo-950/30 sm:p-8">
+          <div className="mb-7 flex items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Resource details</h2>
+                <p className="mt-0.5 text-xs text-slate-400">PDF files up to 25 MB</p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-300">
+              +10 credits
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {error && (
+            <div role="alert" className="mb-5 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-3.5 text-sm font-medium text-rose-300">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Subject</label>
+              <label className="mb-1.5 ml-1 block text-xs font-semibold text-slate-300">Resource title</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Data Structures"
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
+                placeholder="e.g. Operating Systems - Unit 1 to 4 Notes"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 transition focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               />
             </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 ml-1 block text-xs font-semibold text-slate-300">Subject</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Data Structures"
+                  value={formData.subject}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 transition focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 ml-1 block text-xs font-semibold text-slate-300">Semester</label>
+                <select
+                  value={formData.semester}
+                  onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-100 transition focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((semester) => (
+                    <option key={semester} value={semester} className="bg-slate-900">Semester {semester}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Semester</label>
+              <label className="mb-1.5 ml-1 block text-xs font-semibold text-slate-300">Department</label>
               <select
-                value={formData.semester}
-                onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm bg-white"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-100 transition focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               >
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                  <option key={s} value={s}>Semester {s}</option>
+                {['Computer Science', 'Electrical', 'Mechanical', 'Civil', 'Electronics'].map((d) => (
+                  <option key={d} value={d} className="bg-slate-900">{d}</option>
                 ))}
               </select>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Department</label>
-            <select
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm bg-white"
+            <div>
+              <label className="mb-1.5 ml-1 block text-xs font-semibold text-slate-300">
+                Tags <span className="font-normal text-slate-500">(comma-separated)</span>
+              </label>
+              <div className="relative">
+                <Tag className="absolute left-4 top-3.5 h-4 w-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="e.g. Midterm1, Formulas, Unit3, Handwritten"
+                  value={formData.tags}
+                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/50 py-3 pl-11 pr-4 text-sm text-slate-100 placeholder:text-slate-600 transition focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="pdf-file" className="mb-1.5 ml-1 block text-xs font-semibold text-slate-300">PDF document</label>
+              <div className="group relative cursor-pointer rounded-2xl border border-dashed border-indigo-300/25 bg-slate-950/35 p-7 text-center transition hover:border-indigo-300/50 hover:bg-indigo-500/5 sm:p-9">
+                <input
+                  id="pdf-file"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                />
+                {file ? (
+                  <div className="flex items-center justify-center gap-3 text-left">
+                    <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">{file.name}</p>
+                      <p className="mt-1 text-xs text-emerald-300">PDF ready to upload</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <UploadCloud className="mx-auto h-8 w-8 text-indigo-300 transition group-hover:-translate-y-0.5" />
+                    <p className="text-sm font-semibold text-slate-200">Choose a PDF or drag it here</p>
+                    <p className="text-xs text-slate-500">Maximum file size: 25 MB</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="neon-btn mt-2 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {['Computer Science', 'Electrical', 'Mechanical', 'Civil', 'Electronics'].map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Tags (Comma-separated)</label>
-            <div className="relative">
-              <Tag className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                placeholder="e.g. Midterm1, Formulas, Unit3, Handwritten"
-                value={formData.tags}
-                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">PDF Document</label>
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition cursor-pointer relative">
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={handleFileChange}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              {file ? (
-                <div className="flex items-center justify-center gap-2 text-indigo-600 font-medium">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  <span className="text-sm truncate max-w-xs">{file.name}</span>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto" />
-                  <p className="text-sm font-semibold text-slate-700">Click to browse or drag and drop</p>
-                  <p className="text-xs text-slate-400">PDF up to 25MB</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50"
-          >
-            {loading ? 'Uploading File...' : 'Upload Notes & Claim +10 Credits'}
-          </button>
-        </form>
+              <UploadCloud className="h-4 w-4" />
+              {loading ? 'Uploading resource…' : 'Upload resource and earn 10 credits'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

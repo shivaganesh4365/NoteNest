@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import API from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 import { Trash2, FileText, Download, Bookmark, Layers } from 'lucide-react';
@@ -10,27 +10,37 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const { user } = useContext(AuthContext);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!user) {
+      setMyNotes([]);
+      setSavedNotes([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const [notesRes, savedRes] = await Promise.all([
         API.get('/notes/my-notes'),
         API.get('/notes/saved')
       ]);
-      setMyNotes(notesRes.data);
-      setSavedNotes(savedRes.data);
+      setMyNotes(Array.isArray(notesRes.data) ? notesRes.data : []);
+      setSavedNotes(Array.isArray(savedRes.data) ? savedRes.data : []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load dashboard data:', err);
+      setMyNotes([]);
+      setSavedNotes([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this resource?')) return;
     try {
       await API.delete(`/notes/${id}`);
-      setMyNotes(myNotes.filter((n) => n._id !== id));
+      setMyNotes((prev) => prev.filter((n) => n._id !== id));
+      setSavedNotes((prev) => prev.filter((n) => n._id !== id));
     } catch {
       alert('Could not delete note.');
     }
@@ -38,35 +48,55 @@ export default function Dashboard() {
 
   const handleRemoveBookmark = async (id) => {
     try {
-      await API.patch(`/notes/${id}/bookmark`);
-      setSavedNotes(savedNotes.filter((n) => n._id !== id));
+      const res = await API.patch(`/notes/${id}/bookmark`);
+      if (res.data?.isBookmarked === false) {
+        setSavedNotes((prev) => prev.filter((n) => n._id !== id));
+      }
     } catch {
       alert('Could not remove bookmark.');
     }
   };
 
   const handleInAppDownload = async (note) => {
+    if (!note?._id) {
+      alert('This note is missing a valid file reference.');
+      return;
+    }
+
     try {
-      const response = await fetch(`http://localhost:5000${note.fileUrl}`);
+      const res = await API.post(`/notes/${note._id}/download`);
+      const { fileUrl, fileName } = res.data;
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const cleanFileUrl = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
+      const response = await fetch(`${backendUrl}${cleanFileUrl}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = note.fileName || `${note.title}.pdf`;
+      link.download = fileName || `${note.title}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
 
-      await API.patch(`/notes/${note._id}/download`);
+      setMyNotes((prev) =>
+        prev.map((n) =>
+          n._id === note._id ? { ...n, downloadCount: (n.downloadCount || 0) + 1 } : n
+        )
+      );
     } catch (err) {
-      alert('Download failed.');
+      alert(err.response?.data?.message || err.message || 'Download failed.');
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const totalDownloads = myNotes.reduce((acc, curr) => acc + (curr.downloadCount || 0), 0);
   const totalUpvotes = myNotes.reduce((acc, curr) => acc + (curr.upvotes?.length || 0), 0);

@@ -1,88 +1,153 @@
 import { useState, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import API from '../api/client';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { BookOpen, User, Mail, Lock, School, ArrowRight, Loader2, Gift } from 'lucide-react';
 
 export default function Register() {
-  const [formData, setFormData] = useState({ name: '', email: '', college: '', password: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    college: ''
+  });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
       const res = await API.post('/auth/register', formData);
       login(res.data);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed');
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-        <h2 className="text-2xl font-bold text-slate-900">Create an Account</h2>
-        <p className="text-sm text-slate-500 mt-1 mb-6">Join your student community today</p>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+      <div className="w-full max-w-md glass-panel rounded-3xl p-8 sm:p-10 shadow-2xl border border-slate-800">
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 mx-auto flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-4">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            Create an Account
+          </h2>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold mt-2.5">
+            <Gift className="w-3.5 h-3.5" />
+            <span>Get 10 Free Credits on Signup</span>
+          </div>
+        </div>
 
         {error && (
-          <div className="p-3 mb-4 rounded-xl bg-rose-50 text-rose-600 text-sm font-medium border border-rose-100">
+          <div className="mb-5 p-3.5 bg-rose-500/10 border border-rose-500/25 rounded-2xl text-rose-400 text-xs text-center font-medium">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleRegister} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Full Name</label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-            />
+            <label className="block text-xs font-semibold text-slate-300 mb-1 ml-1">Full Name</label>
+            <div className="relative neon-border rounded-2xl bg-slate-950/60 transition">
+              <User className="w-4 h-4 text-slate-500 absolute left-4 top-3.5" />
+              <input
+                type="text"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Alex Morgan"
+                className="w-full pl-11 pr-4 py-2.5 bg-transparent text-sm text-slate-100 placeholder-slate-600 focus:outline-none"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-            />
+            <label className="block text-xs font-semibold text-slate-300 mb-1 ml-1">College / Institute</label>
+            <div className="relative neon-border rounded-2xl bg-slate-950/60 transition">
+              <School className="w-4 h-4 text-slate-500 absolute left-4 top-3.5" />
+              <input
+                type="text"
+                name="college"
+                required
+                value={formData.college}
+                onChange={handleChange}
+                placeholder="Engineering University"
+                className="w-full pl-11 pr-4 py-2.5 bg-transparent text-sm text-slate-100 placeholder-slate-600 focus:outline-none"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">College / University</label>
-            <input
-              type="text"
-              value={formData.college}
-              onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-            />
+            <label className="block text-xs font-semibold text-slate-300 mb-1 ml-1">Email address</label>
+            <div className="relative neon-border rounded-2xl bg-slate-950/60 transition">
+              <Mail className="w-4 h-4 text-slate-500 absolute left-4 top-3.5" />
+              <input
+                type="email"
+                name="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="alex@university.edu"
+                className="w-full pl-11 pr-4 py-2.5 bg-transparent text-sm text-slate-100 placeholder-slate-600 focus:outline-none"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
-            />
+            <label className="block text-xs font-semibold text-slate-300 mb-1 ml-1">Password</label>
+            <div className="relative neon-border rounded-2xl bg-slate-950/60 transition">
+              <Lock className="w-4 h-4 text-slate-500 absolute left-4 top-3.5" />
+              <input
+                type="password"
+                name="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="••••••••"
+                className="w-full pl-11 pr-4 py-2.5 bg-transparent text-sm text-slate-100 placeholder-slate-600 focus:outline-none"
+              />
+            </div>
           </div>
+
           <button
             type="submit"
-            className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+            disabled={loading}
+            className="w-full mt-3 neon-btn text-white py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            Create Account
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Creating Account...</span>
+              </>
+            ) : (
+              <>
+                <span>Complete Signup</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 
-        <p className="text-xs text-center text-slate-500 mt-6">
-          Already registered? <Link to="/login" className="text-indigo-600 font-bold hover:underline">Sign In</Link>
+        <p className="mt-6 text-center text-xs text-slate-400">
+          Already registered?{' '}
+          <Link to="/login" className="font-semibold text-indigo-400 hover:text-indigo-300 transition underline underline-offset-4">
+            Sign in
+          </Link>
         </p>
       </div>
     </div>

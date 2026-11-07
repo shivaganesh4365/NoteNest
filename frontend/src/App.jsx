@@ -12,22 +12,23 @@ function AppRoutes() {
   const { user } = useContext(AuthContext);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen relative flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden">
+      {/* Dynamic Ambient Background Lights */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[850px] h-[500px] bg-indigo-600/15 blur-[140px] rounded-full" />
+        <div className="absolute top-[35%] -left-32 w-[500px] h-[500px] bg-cyan-600/10 blur-[150px] rounded-full" />
+        <div className="absolute bottom-10 -right-32 w-[600px] h-[600px] bg-purple-600/10 blur-[160px] rounded-full" />
+      </div>
+
       <Navbar />
-      <main className="flex-1">
+
+      <main className="flex-1 relative z-10">
         <Routes>
-          {/* If logged in, show Explore; otherwise redirect straight to /login */}
           <Route path="/" element={user ? <Explore /> : <Navigate to="/login" replace />} />
-          
-          {/* Auth routes */}
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
-          
-          {/* Protected routes */}
           <Route path="/upload" element={user ? <UploadNote /> : <Navigate to="/login" replace />} />
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
-
-          {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
