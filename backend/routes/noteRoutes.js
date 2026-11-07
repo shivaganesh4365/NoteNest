@@ -7,38 +7,21 @@ import {
   handleNoteDownload,
   toggleUpvote,
   toggleBookmark,
-  getSavedNotes,
-  getNoteFile
+  getSavedNotes
 } from '../controllers/noteController.js';
-import { createReport, getModerationQueue, reviewNote, reviewReport } from '../controllers/moderationController.js';
-import { protect, requireModerator } from '../middleware/authMiddleware.js';
+import { protect } from '../middleware/authMiddleware.js';
 import { upload } from '../middleware/uploadMiddleware.js';
 import { runLifecycleSweep } from '../services/lifecycleService.js';
 
 const router = express.Router();
 
-const receivePdf = (req, res, next) => {
-  upload.single('file')(req, res, (error) => {
-    if (error) {
-      const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
-      return res.status(status).json({ message: error.message });
-    }
-    return next();
-  });
-};
-
 router.get('/', getNotes);
-router.post('/', protect, receivePdf, uploadNote);
+router.post('/', protect, upload.single('file'), uploadNote);
 router.get('/my-notes', protect, getUserNotes);
 router.get('/saved', protect, getSavedNotes);
-router.get('/moderation/queue', protect, requireModerator, getModerationQueue);
-router.patch('/moderation/notes/:id', protect, requireModerator, reviewNote);
-router.patch('/moderation/reports/:id', protect, requireModerator, reviewReport);
 
 // Protected atomic credit download
 router.post('/:id/download', protect, handleNoteDownload);
-router.get('/:id/file', protect, getNoteFile);
-router.post('/:id/report', protect, createReport);
 
 router.patch('/:id/upvote', protect, toggleUpvote);
 router.patch('/:id/bookmark', protect, toggleBookmark);

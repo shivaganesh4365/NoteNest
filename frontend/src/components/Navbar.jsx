@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { BookOpen, UploadCloud, LogOut, LayoutDashboard, Coins, ShieldCheck } from 'lucide-react';
+import { BookOpen, UploadCloud, LogOut, LayoutDashboard, Coins } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
@@ -43,12 +43,6 @@ export default function Navbar() {
                 <LayoutDashboard className="h-4 w-4" />
                 <span className="hidden sm:inline">My shelf</span>
               </Link>
-              {user.isModerator && (
-                <Link to="/moderation" aria-label="Moderation queue" className={`${navClass('/moderation')} flex items-center gap-2`}>
-                  <ShieldCheck className="h-4 w-4" />
-                  <span className="hidden sm:inline">Review</span>
-                </Link>
-              )}
               <div
                 className="flex items-center gap-1.5 rounded-full border border-[#c9b986] bg-[#f2ead6] px-3 py-1.5 text-xs font-semibold text-[#68542e]"
                 title="Your available credits"

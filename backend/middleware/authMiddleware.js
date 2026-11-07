@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
 
 export const protect = (req, res, next) => {
   let token;
@@ -17,27 +16,5 @@ export const protect = (req, res, next) => {
 
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
-  }
-};
-
-const moderatorIds = () => new Set(
-  (process.env.MODERATOR_IDS || '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter(Boolean)
-);
-
-export const isModerator = (userId) => moderatorIds().has(userId?.toString());
-
-export const requireModerator = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id).select('_id');
-    if (!user || !isModerator(user._id)) {
-      return res.status(403).json({ message: 'Moderator access required.' });
-    }
-    req.moderator = user;
-    return next();
-  } catch (error) {
-    return next(error);
   }
 };

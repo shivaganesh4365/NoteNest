@@ -22,6 +22,25 @@ if (!fs.existsSync(archivedDir)) fs.mkdirSync(archivedDir, { recursive: true });
 app.use(cors());
 app.use(express.json());
 
+// Serve static directories with CORS headers enabled
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(uploadsDir)
+);
+
+app.use(
+  '/archived_uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(archivedDir)
+);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/notes', noteRoutes);
 
@@ -34,7 +53,7 @@ const PORT = process.env.PORT || 5000;
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`[Server] NoteNest backend running on port ${PORT}`);
-    console.log(`[Server] Storing private uploads in: ${uploadsDir}`);
+    console.log(`[Server] Serving uploads from: ${uploadsDir}`);
     initLifecycleScheduler();
   });
 });

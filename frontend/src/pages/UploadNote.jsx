@@ -23,11 +23,6 @@ export default function UploadNote() {
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
-    if (selected && selected.size > 25 * 1024 * 1024) {
-      setError('PDF files must be 25 MB or smaller.');
-      setFile(null);
-      return;
-    }
     if (selected && selected.type !== 'application/pdf' && !selected.name.toLowerCase().endsWith('.pdf')) {
       setError('Only PDF files are supported.');
       setFile(null);
@@ -94,7 +89,7 @@ export default function UploadNote() {
           </div>
           <div className="flex items-start gap-3">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#d6c596]/40 text-xs font-semibold text-[#e2d1a9]">03</span>
-            <p className="pt-1 text-sm text-[#e5e5d8]">Earn 10 credits after approval.</p>
+            <p className="pt-1 text-sm text-[#e5e5d8]">Earn 10 credits when it is shared.</p>
           </div>
         </div>
         <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full border border-[#d6c596]/15" />
@@ -107,7 +102,7 @@ export default function UploadNote() {
             <h2 className="editorial-heading mt-2 text-3xl text-[#23343a] sm:text-4xl">Resource details</h2>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#c7d2c3] bg-[#edf2e9] px-3 py-1.5 text-xs font-semibold text-[#42614d]">
-            <Gift className="h-3.5 w-3.5" /> 10 credits after approval
+            <Gift className="h-3.5 w-3.5" /> +10 credits
           </span>
         </div>
 
@@ -170,7 +165,7 @@ export default function UploadNote() {
                     <UploadCloud className="h-5 w-5" />
                   </div>
                   <p className="text-sm font-semibold text-[#35464a]">Choose a PDF to upload</p>
-                  <p className="mt-1 text-xs text-[#89918b]">or drop it here · valid PDF · maximum 25 MB</p>
+                  <p className="mt-1 text-xs text-[#89918b]">or drop it here · maximum 25 MB</p>
                 </>
               )}
             </div>
