@@ -1,16 +1,44 @@
+import { useEffect, useState } from 'react';
+import API from '../api/client';
 import { X, Download, FileText, School, Calendar } from 'lucide-react';
 
 export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
-  if (!isOpen || !note) return null;
+  const [preview, setPreview] = useState({ noteId: null, fileUrl: '', error: '' });
 
-  // Ensure backend URL has no trailing slash and note.fileUrl has a leading slash
-  const rawBackend = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  const backendUrl = rawBackend.replace(/\/+$/, '');
-  const filePath = typeof note.fileUrl === 'string' ? note.fileUrl.trim() : '';
-  const cleanPath = filePath
-    ? filePath.startsWith('/') ? filePath : `/${filePath}`
-    : '';
-  const fileUrl = cleanPath ? `${backendUrl}${cleanPath}` : '';
+  useEffect(() => {
+    if (!isOpen || !note?._id) {
+      return undefined;
+    }
+
+    let objectUrl;
+    let cancelled = false;
+
+    API.get(`/notes/${note._id}/file`, { responseType: 'blob' })
+      .then(({ data }) => {
+        if (cancelled) return;
+        objectUrl = window.URL.createObjectURL(data);
+        setPreview({ noteId: note._id, fileUrl: objectUrl, error: '' });
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setPreview({
+            noteId: note._id,
+            fileUrl: '',
+            error: error.response?.data?.message || 'Unable to load this PDF preview.'
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+    };
+  }, [isOpen, note?._id]);
+
+  if (!isOpen || !note) return null;
+  const hasPreview = preview.noteId === note._id;
+  const fileUrl = hasPreview ? preview.fileUrl : '';
+  const fileError = hasPreview ? preview.error : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c2927]/70 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label="PDF preview">
@@ -37,13 +65,15 @@ export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onDownload(note)}
-              className="flex items-center gap-1.5 rounded-lg bg-[#244b43] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#193a34] sm:px-4"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download</span>
-            </button>
+            {onDownload && (
+              <button
+                onClick={() => onDownload(note)}
+                className="flex items-center gap-1.5 rounded-lg bg-[#244b43] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#193a34] sm:px-4"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="rounded-full p-2 text-[#818780] transition hover:bg-[#eeeae1] hover:text-[#23343a]"
@@ -55,15 +85,19 @@ export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
 
         {/* PDF Frame */}
         <div className="relative flex-1 bg-[#e7e5df]">
-          {fileUrl ? (
+          {fileError ? (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[#884b40]">
+              {fileError}
+            </div>
+          ) : fileUrl ? (
             <iframe
               src={`${fileUrl}#toolbar=0&navpanes=0`}
               title={note.title || 'PDF preview'}
               className="h-full w-full border-none"
             />
           ) : (
-            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[#687478]">
-              Preview is unavailable because this note has no file attached.
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[#687478]" role="status">
+              Loading secure PDF preview…
             </div>
           )}
         </div>

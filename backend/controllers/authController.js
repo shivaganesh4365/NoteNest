@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { isModerator } from '../middleware/authMiddleware.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'secretkey123', {
@@ -34,6 +35,7 @@ export const register = async (req, res) => {
       email: user.email,
       college: user.college,
       credits: user.credits,
+      isModerator: isModerator(user._id),
       token: generateToken(user._id)
     });
   } catch (error) {
@@ -67,6 +69,7 @@ export const login = async (req, res) => {
       email: user.email,
       college: user.college,
       credits: user.credits,
+      isModerator: isModerator(user._id),
       token: generateToken(user._id)
     });
   } catch (error) {
@@ -80,7 +83,7 @@ export const getMe = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
-    res.json(user);
+    res.json({ ...user.toObject(), isModerator: isModerator(user._id) });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

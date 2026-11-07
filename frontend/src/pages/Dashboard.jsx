@@ -60,16 +60,8 @@ export default function Dashboard() {
 
     try {
       const res = await API.post(`/notes/${note._id}/download`);
-      const { fileUrl, fileName } = res.data;
-      const backendUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
-      const cleanFileUrl = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
-      const response = await fetch(`${backendUrl}${cleanFileUrl}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
+      const { fileName } = res.data;
+      const { data: blob } = await API.get(`/notes/${note._id}/file`, { responseType: 'blob' });
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -176,6 +168,18 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-semibold text-[#23343a]">{note.title}</h3>
                         <p className="mt-1 truncate text-xs text-[#818780]">{note.subject} · Semester {note.semester}</p>
+                          {showingUploads && note.reviewStatus && note.reviewStatus !== 'approved' && (
+                            <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                              note.reviewStatus === 'pending'
+                                ? 'bg-[#f1ead9] text-[#795f37]'
+                                : 'bg-[#f7e9e4] text-[#914c3f]'
+                            }`}>
+                              {note.reviewStatus === 'pending' ? 'Awaiting review' : 'Not approved'}
+                            </span>
+                          )}
+                          {showingUploads && note.moderationNote && note.reviewStatus === 'rejected' && (
+                            <p className="mt-1 text-xs text-[#914c3f]">{note.moderationNote}</p>
+                          )}
                       </div>
                     </div>
                     <div className="text-xs text-[#687478]">
@@ -186,9 +190,11 @@ export default function Dashboard() {
                       )}
                     </div>
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleInAppDownload(note)} className="rounded-lg p-2 text-[#687478] transition hover:bg-[#e9ede4] hover:text-[#244b43]" title="Download resource" aria-label={`Download ${note.title}`}>
-                        <Download className="h-4 w-4" />
-                      </button>
+                      {(!showingUploads || !note.reviewStatus || note.reviewStatus === 'approved') && (
+                        <button onClick={() => handleInAppDownload(note)} className="rounded-lg p-2 text-[#687478] transition hover:bg-[#e9ede4] hover:text-[#244b43]" title="Download resource" aria-label={`Download ${note.title}`}>
+                          <Download className="h-4 w-4" />
+                        </button>
+                      )}
                       {showingUploads ? (
                         <button onClick={() => handleDelete(note._id)} className="rounded-lg p-2 text-[#92958d] transition hover:bg-[#f7e9e4] hover:text-[#914c3f]" title="Delete resource" aria-label={`Delete ${note.title}`}>
                           <Trash2 className="h-4 w-4" />

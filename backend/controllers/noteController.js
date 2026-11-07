@@ -2,12 +2,68 @@ import Note from '../models/Note.js';
 import User from '../models/User.js';
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'crypto';
+import { isModerator } from '../middleware/authMiddleware.js';
+
+const removeUploadedFile = async (filePath) => {
+  if (!filePath) return;
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+};
+
+const isValidPdf = (buffer) => {
+  const header = buffer.subarray(0, 8).toString('ascii');
+  const trailer = buffer.subarray(Math.max(0, buffer.length - 2048)).toString('latin1');
+  return /^%PDF-\d\.\d/.test(header) && trailer.includes('%%EOF');
+};
 
 export const uploadNote = async (req, res) => {
+  let uploadedFilePath = req.file?.path;
   try {
     const { title, subject, semester, department, tags } = req.body;
     if (!req.file) {
       return res.status(400).json({ message: 'Please upload a PDF file.' });
+    }
+
+    const pdfBuffer = await fs.promises.readFile(req.file.path);
+    if (!isValidPdf(pdfBuffer)) {
+      await removeUploadedFile(uploadedFilePath);
+      return res.status(400).json({ message: 'The uploaded file is not a valid PDF.' });
+    }
+
+    const contentHash = createHash('sha256').update(pdfBuffer).digest('hex');
+    const duplicate = await Note.exists({ contentHash });
+    if (duplicate) {
+      await removeUploadedFile(uploadedFilePath);
+      return res.status(409).json({ message: 'This PDF has already been uploaded.' });
+    }
+
+    const unhashedNotes = await Note.find({
+      fileSize: req.file.size,
+      contentHash: { $exists: false }
+    }).select('fileUrl fileSize');
+    for (const existingNote of unhashedNotes) {
+      const existingPath = path.resolve(process.cwd(), existingNote.fileUrl.replace(/^[/\\]+/, ''));
+      const allowedRoots = ['uploads', 'archived_uploads'].map((folder) =>
+        path.resolve(process.cwd(), folder) + path.sep
+      );
+      if (!allowedRoots.some((root) => existingPath.startsWith(root))) continue;
+
+      try {
+        const existingBuffer = await fs.promises.readFile(existingPath);
+        const existingHash = createHash('sha256').update(existingBuffer).digest('hex');
+        if (existingHash === contentHash) {
+          await removeUploadedFile(uploadedFilePath);
+          return res.status(409).json({ message: 'This PDF has already been uploaded.' });
+        }
+        existingNote.contentHash = existingHash;
+        await existingNote.save();
+      } catch (error) {
+        if (error.code !== 'ENOENT' && error.code !== 11000) throw error;
+      }
     }
 
     // Parse comma-separated or JSON tags
@@ -27,21 +83,21 @@ export const uploadNote = async (req, res) => {
       fileUrl: `/uploads/${req.file.filename}`,
       fileName: req.file.originalname,
       fileSize: req.file.size,
+      contentHash,
+      reviewStatus: 'pending',
       uploadedBy: req.user.id
     });
 
-    // Reward uploader with +10 Credits
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { $inc: { credits: 10 } },
-      { new: true }
-    );
-
     res.status(201).json({
       note,
-      remainingCredits: user.credits
+      reviewStatus: note.reviewStatus,
+      message: 'Your PDF passed validation and is awaiting moderator review.'
     });
   } catch (error) {
+    await removeUploadedFile(uploadedFilePath);
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'This PDF has already been uploaded.' });
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -49,7 +105,10 @@ export const uploadNote = async (req, res) => {
 export const getNotes = async (req, res) => {
   try {
     const { search, semester, subject, department, tag, sort } = req.query;
-    const filter = { isArchived: false };
+    const filter = {
+      isArchived: false,
+      reviewStatus: { $in: ['approved', null] }
+    };
 
     if (search) {
       filter.$or = [
@@ -81,6 +140,9 @@ export const handleNoteDownload = async (req, res) => {
   try {
     const note = await Note.findById(req.params.id);
     if (!note) return res.status(404).json({ message: 'Note not found.' });
+    if (!['approved', undefined].includes(note.reviewStatus)) {
+      return res.status(404).json({ message: 'This resource is not available.' });
+    }
 
     const downloader = await User.findById(req.user.id);
     if (!downloader) return res.status(404).json({ message: 'User not found.' });
@@ -179,7 +241,9 @@ export const getSavedNotes = async (req, res) => {
       path: 'savedNotes',
       populate: { path: 'uploadedBy', select: 'name college' }
     });
-    res.json(user.savedNotes || []);
+    res.json((user.savedNotes || []).filter(
+      (note) => note && ['approved', undefined].includes(note.reviewStatus)
+    ));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -191,6 +255,36 @@ export const getUserNotes = async (req, res) => {
     res.json(notes);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getNoteFile = async (req, res) => {
+  try {
+    const note = await Note.findById(req.params.id);
+    if (!note) return res.status(404).json({ message: 'Note not found.' });
+
+    const isOwner = note.uploadedBy.toString() === req.user.id;
+    const canReview = isModerator(req.user.id);
+    if (!['approved', undefined].includes(note.reviewStatus) && !isOwner && !canReview) {
+      return res.status(404).json({ message: 'This resource is not available.' });
+    }
+
+    const safeRelativePath = note.fileUrl.replace(/^[/\\]+/, '');
+    const filePath = path.resolve(process.cwd(), safeRelativePath);
+    const allowedRoots = ['uploads', 'archived_uploads'].map((folder) =>
+      path.resolve(process.cwd(), folder) + path.sep
+    );
+    if (!allowedRoots.some((root) => filePath.startsWith(root))) {
+      return res.status(400).json({ message: 'Invalid file location.' });
+    }
+
+    await fs.promises.access(filePath, fs.constants.R_OK);
+    return res.type('application/pdf').sendFile(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({ message: 'Resource file not found.' });
+    }
+    return res.status(500).json({ message: error.message });
   }
 };
 

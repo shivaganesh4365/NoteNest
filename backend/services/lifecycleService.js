@@ -24,6 +24,7 @@ export const runLifecycleSweep = async () => {
     // Rule 1: Find candidates to move to cold archive
     const archiveCandidates = await Note.find({
       isArchived: false,
+      reviewStatus: { $in: ['approved', null] },
       createdAt: { $lte: ninetyDaysAgo },
       downloadCount: { $lt: 3 }
     });

@@ -4,10 +4,11 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Download, School, Calendar, Filter,
-  Eye, Heart, Bookmark, Sparkles, BookOpen, ArrowUpRight
+  Eye, Heart, Bookmark, Sparkles, BookOpen, ArrowUpRight, Flag
 } from 'lucide-react';
 import PdfPreviewModal from '../components/PdfPreviewModal';
 import OutOfCreditsModal from '../components/OutOfCreditsModal';
+import ReportResourceModal from '../components/ReportResourceModal';
 
 export default function Explore() {
   const { user, updateUserCredits } = useContext(AuthContext);
@@ -23,6 +24,7 @@ export default function Explore() {
   const [selectedNote, setSelectedNote] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
 
   const departments = ['All', 'Computer Science', 'Electrical', 'Mechanical', 'Civil', 'Electronics'];
 
@@ -114,15 +116,10 @@ export default function Explore() {
 
     try {
       const res = await API.post(`/notes/${note._id}/download`);
-      const { fileUrl, fileName, credits } = res.data;
+      const { fileName, credits } = res.data;
       if (credits !== undefined) updateUserCredits(credits);
 
-      const backendUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
-      const cleanFileUrl = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
-      const response = await fetch(`${backendUrl}${cleanFileUrl}`);
-      if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
-
-      const blob = await response.blob();
+      const { data: blob } = await API.get(`/notes/${note._id}/file`, { responseType: 'blob' });
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -286,6 +283,9 @@ export default function Explore() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button onClick={() => handleOpenPreview(note)} className="rounded-full p-2 text-[#818780] transition hover:bg-[#f0eee6] hover:text-[#244b43]" title="Preview PDF" aria-label="Preview PDF"><Eye className="h-4 w-4" /></button>
+                        {note.uploadedBy?._id !== user?._id && (
+                          <button onClick={() => user ? setReportTarget(note) : navigate('/login')} className="rounded-full p-2 text-[#a1a39c] transition hover:bg-[#f7e9e4] hover:text-[#914c3f]" title="Report resource" aria-label={`Report ${note.title}`}><Flag className="h-4 w-4" /></button>
+                        )}
                         <button onClick={() => handleInAppDownload(note)} className="inline-flex items-center gap-1.5 rounded-full bg-[#244b43] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#193a34]">
                           Get notes <ArrowUpRight className="h-3.5 w-3.5" />
                         </button>
@@ -301,6 +301,11 @@ export default function Explore() {
 
       <PdfPreviewModal note={selectedNote} isOpen={isPreviewOpen} onClose={handleClosePreview} onDownload={handleInAppDownload} />
       <OutOfCreditsModal isOpen={isOutOfCreditsOpen} onClose={() => setIsOutOfCreditsOpen(false)} />
+      <ReportResourceModal
+        note={reportTarget}
+        onClose={() => setReportTarget(null)}
+        onReported={() => window.alert('Thank you. The moderation team will review your report.')}
+      />
     </div>
   );
 }
