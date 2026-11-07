@@ -13,20 +13,20 @@ export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
   const fileUrl = cleanPath ? `${backendUrl}${cleanPath}` : '';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md">
-      <div className="glass-panel w-full max-w-5xl h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c2927]/70 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label="PDF preview">
+      <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#d8d2c3] bg-[#fbfaf6] shadow-2xl">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60">
+        <div className="flex items-center justify-between gap-4 border-b border-[#e3dfd5] bg-[#fbfaf6] px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 rounded-xl flex items-center justify-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d7d1c2] bg-[#f0eee6] text-[#42614d]">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-base leading-tight line-clamp-1">
+              <h3 className="line-clamp-1 text-sm font-semibold text-[#23343a] sm:text-base">
                 {note.title}
               </h3>
-              <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#818780]">
                 <span>{note.subject}</span>
                 <span>•</span>
                 <span>Sem {note.semester}</span>
@@ -39,14 +39,14 @@ export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => onDownload(note)}
-              className="flex items-center gap-1.5 neon-btn text-white text-xs font-semibold px-4 py-2 rounded-xl transition"
+              className="flex items-center gap-1.5 rounded-lg bg-[#244b43] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#193a34] sm:px-4"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition"
+              className="rounded-full p-2 text-[#818780] transition hover:bg-[#eeeae1] hover:text-[#23343a]"
             >
               <X className="w-5 h-5" />
             </button>
@@ -54,34 +54,34 @@ export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
         </div>
 
         {/* PDF Frame */}
-        <div className="flex-1 bg-slate-950 relative">
+        <div className="relative flex-1 bg-[#e7e5df]">
           {fileUrl ? (
             <iframe
               src={`${fileUrl}#toolbar=0&navpanes=0`}
               title={note.title || 'PDF preview'}
-              className="w-full h-full border-none"
+              className="h-full w-full border-none"
             />
           ) : (
-            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-400">
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[#687478]">
               Preview is unavailable because this note has no file attached.
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800/80 bg-slate-900/60 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e3dfd5] bg-[#fbfaf6] px-4 py-3 text-xs text-[#687478] sm:px-6">
+          <div className="flex flex-wrap items-center gap-4">
             <span className="flex items-center gap-1">
-              <School className="w-3.5 h-3.5 text-slate-500" />
+              <School className="h-3.5 w-3.5 text-[#ad8950]" />
               {note.uploadedBy?.college || 'Institute'}
             </span>
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <Calendar className="h-3.5 w-3.5 text-[#ad8950]" />
               Uploaded by {note.uploadedBy?.name || 'Anonymous'}
             </span>
           </div>
           <div>
-            <span className="font-semibold text-indigo-400">{note.downloadCount || 0}</span> total downloads
+            <span className="font-semibold text-[#42614d]">{note.downloadCount || 0}</span> total downloads
           </div>
         </div>
 

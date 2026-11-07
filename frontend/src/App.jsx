@@ -12,14 +12,7 @@ function AppRoutes() {
   const { user } = useContext(AuthContext);
 
   return (
-    <div className="min-h-screen relative flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden">
-      {/* Dynamic Ambient Background Lights */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[850px] h-[500px] bg-indigo-600/15 blur-[140px] rounded-full" />
-        <div className="absolute top-[35%] -left-32 w-[500px] h-[500px] bg-cyan-600/10 blur-[150px] rounded-full" />
-        <div className="absolute bottom-10 -right-32 w-[600px] h-[600px] bg-purple-600/10 blur-[160px] rounded-full" />
-      </div>
-
+    <div className="min-h-screen relative flex flex-col overflow-x-hidden bg-[#f5f2e9] text-[#23343a]">
       <Navbar />
 
       <main className="flex-1 relative z-10">

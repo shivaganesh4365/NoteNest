@@ -13,98 +13,62 @@ export default function Navbar() {
     navigate('/login');
   };
 
-  const isActive = (path) => location.pathname === path;
+  const navClass = (path) => `border-b-2 px-1 py-2 text-sm transition ${
+    location.pathname === path
+      ? 'border-[#ad8950] font-semibold text-[#244b43]'
+      : 'border-transparent text-[#687478] hover:border-[#c6b58f] hover:text-[#23343a]'
+  }`;
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/75 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          
-          {/* Logo with Ambient Glow */}
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-all duration-300 group-hover:scale-105">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <span className="font-extrabold text-xl tracking-tight text-white">
-              Note<span className="bg-gradient-to-r from-indigo-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">Nest</span>
-            </span>
-          </Link>
-
-          {/* Navigation & User Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              to="/"
-              className={`text-xs sm:text-sm font-semibold px-3 py-2 rounded-xl transition-all duration-200 ${
-                isActive('/')
-                  ? 'text-indigo-300 bg-indigo-500/15 border border-indigo-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-              }`}
-            >
-              Explore
-            </Link>
-
-            {user ? (
-              <>
-                {/* Live Credit Chip */}
-                <div
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-300 rounded-xl font-bold text-xs border border-amber-500/25 shadow-inner"
-                  title="Your Available Balance (2 credits per download)"
-                >
-                  <Coins className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{user.credits ?? 0}</span>
-                  <span className="hidden sm:inline text-amber-400/80 font-normal">Credits</span>
-                </div>
-
-                {/* Upload Button */}
-                <Link
-                  to="/upload"
-                  className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-md shadow-indigo-600/25 active:scale-95"
-                >
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload (+10)</span>
-                </Link>
-
-                {/* Dashboard Link */}
-                <Link
-                  to="/dashboard"
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                    isActive('/dashboard')
-                      ? 'text-indigo-300 bg-indigo-500/15 border border-indigo-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-                  }`}
-                  title="Dashboard"
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </Link>
-
-                {/* Logout Button */}
-                <button
-                  onClick={handleLogout}
-                  className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-transparent hover:border-rose-500/20"
-                  title="Log out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link
-                  to="/login"
-                  className="text-xs sm:text-sm font-semibold text-slate-400 hover:text-slate-200 px-3 py-2 rounded-xl transition hover:bg-slate-900/60"
-                >
-                  Log In
-                </Link>
-                <Link
-                  to="/register"
-                  className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-xl transition shadow-md shadow-indigo-600/25 active:scale-95"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
+    <nav className="sticky top-0 z-40 border-b border-[#dedbd1] bg-[#fbfaf6]/95 backdrop-blur-md">
+      <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link to="/" className="group flex items-center gap-3" aria-label="NoteNest home">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#ad8950]/50 bg-[#244b43] text-[#eee2c6] shadow-sm transition group-hover:-rotate-3">
+            <BookOpen className="h-[18px] w-[18px]" strokeWidth={1.7} />
           </div>
+          <span className="editorial-heading text-[1.7rem] leading-none text-[#23343a]">
+            Note<span className="text-[#244b43]">Nest</span>
+          </span>
+        </Link>
 
+        <div className="flex items-center gap-3 sm:gap-7">
+          <Link to="/" className={navClass('/')}>Library</Link>
+          {user ? (
+            <>
+              <Link to="/upload" className={`${navClass('/upload')} hidden items-center gap-2 sm:flex`}>
+                <UploadCloud className="h-4 w-4" />
+                Contribute
+              </Link>
+              <Link to="/dashboard" aria-label="My shelf" className={`${navClass('/dashboard')} flex items-center gap-2`}>
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="hidden sm:inline">My shelf</span>
+              </Link>
+              <div
+                className="flex items-center gap-1.5 rounded-full border border-[#c9b986] bg-[#f2ead6] px-3 py-1.5 text-xs font-semibold text-[#68542e]"
+                title="Your available credits"
+              >
+                <Coins className="h-3.5 w-3.5" />
+                {user.credits ?? 0}
+                <span className="hidden sm:inline">credits</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full p-2 text-[#687478] transition hover:bg-[#f1e7e2] hover:text-[#914c3f]"
+                title="Log out"
+                aria-label="Log out"
+              >
+                <LogOut className="h-[17px] w-[17px]" />
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 sm:gap-5">
+              <Link to="/login" className="text-sm font-medium text-[#687478] transition hover:text-[#23343a]">Sign in</Link>
+              <Link to="/register" className="rounded-full bg-[#244b43] px-4 py-2 text-sm font-medium text-[#fffdf6] transition hover:bg-[#193a34]">
+                Join NoteNest
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </nav>

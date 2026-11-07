@@ -1,9 +1,9 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import API from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, Download, FileText, School, Calendar, Filter,
+  Search, Download, School, Calendar, Filter,
   Eye, Heart, Bookmark, Sparkles, BookOpen, ArrowUpRight
 } from 'lucide-react';
 import PdfPreviewModal from '../components/PdfPreviewModal';
@@ -12,7 +12,6 @@ import OutOfCreditsModal from '../components/OutOfCreditsModal';
 export default function Explore() {
   const { user, updateUserCredits } = useContext(AuthContext);
   const navigate = useNavigate();
-
   const [notes, setNotes] = useState([]);
   const [search, setSearch] = useState('');
   const [semester, setSemester] = useState('');
@@ -20,16 +19,14 @@ export default function Explore() {
   const [sort, setSort] = useState('latest');
   const [activeTag, setActiveTag] = useState('');
   const [savedNoteIds, setSavedNoteIds] = useState([]);
-  const [loading, setLoading] = useState(false);
-
+  const [loading, setLoading] = useState(true);
   const [selectedNote, setSelectedNote] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isOutOfCreditsOpen, setIsOutOfCreditsOpen] = useState(false);
 
   const departments = ['All', 'Computer Science', 'Electrical', 'Mechanical', 'Civil', 'Electronics'];
 
-  const fetchNotes = async () => {
-    setLoading(true);
+  const fetchNotes = useCallback(async () => {
     try {
       const res = await API.get('/notes', {
         params: { search, semester, department, sort, tag: activeTag || undefined }
@@ -40,28 +37,26 @@ export default function Explore() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, semester, department, sort, activeTag]);
 
-  const fetchSavedNotes = async () => {
+  const fetchSavedNotes = useCallback(async () => {
     if (!user) return;
     try {
       const res = await API.get('/notes/saved');
-      setSavedNoteIds(res.data.map((n) => n._id));
+      setSavedNoteIds(res.data.map((note) => note._id));
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchNotes();
-    }, 300);
+    const delayDebounce = setTimeout(fetchNotes, 300);
     return () => clearTimeout(delayDebounce);
-  }, [search, semester, department, sort, activeTag]);
+  }, [fetchNotes]);
 
   useEffect(() => {
     fetchSavedNotes();
-  }, [user]);
+  }, [fetchSavedNotes]);
 
   const handleOpenPreview = (note) => {
     setSelectedNote(note);
@@ -80,17 +75,15 @@ export default function Explore() {
     }
     try {
       await API.patch(`/notes/${noteId}/upvote`);
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n._id !== noteId) return n;
-          const currentUpvotes = n.upvotes || [];
-          const hasVoted = currentUpvotes.includes(user._id);
-          const updatedUpvotes = hasVoted
-            ? currentUpvotes.filter((id) => id !== user._id)
-            : [...currentUpvotes, user._id];
-          return { ...n, upvotes: updatedUpvotes };
-        })
-      );
+      setNotes((prev) => prev.map((note) => {
+        if (note._id !== noteId) return note;
+        const currentUpvotes = note.upvotes || [];
+        const hasVoted = currentUpvotes.includes(user._id);
+        const updatedUpvotes = hasVoted
+          ? currentUpvotes.filter((id) => id !== user._id)
+          : [...currentUpvotes, user._id];
+        return { ...note, upvotes: updatedUpvotes };
+      }));
     } catch (err) {
       console.error(err);
     }
@@ -104,7 +97,7 @@ export default function Explore() {
     try {
       const res = await API.patch(`/notes/${noteId}/bookmark`);
       if (res.data.isBookmarked) {
-        setSavedNoteIds((prev) => [...prev, noteId]);
+        setSavedNoteIds((prev) => [...new Set([...prev, noteId])]);
       } else {
         setSavedNoteIds((prev) => prev.filter((id) => id !== noteId));
       }
@@ -122,18 +115,12 @@ export default function Explore() {
     try {
       const res = await API.post(`/notes/${note._id}/download`);
       const { fileUrl, fileName, credits } = res.data;
+      if (credits !== undefined) updateUserCredits(credits);
 
-      if (credits !== undefined) {
-        updateUserCredits(credits);
-      }
-
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const backendUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
       const cleanFileUrl = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
       const response = await fetch(`${backendUrl}${cleanFileUrl}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`);
 
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
@@ -145,9 +132,9 @@ export default function Explore() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
 
-      setNotes((prev) =>
-        prev.map((n) => (n._id === note._id ? { ...n, downloadCount: (n.downloadCount || 0) + 1 } : n))
-      );
+      setNotes((prev) => prev.map((item) =>
+        item._id === note._id ? { ...item, downloadCount: (item.downloadCount || 0) + 1 } : item
+      ));
     } catch (err) {
       if (err.response?.status === 403) {
         setIsOutOfCreditsOpen(true);
@@ -158,248 +145,162 @@ export default function Explore() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-indigo-500 selection:text-white">
-      {/* Decorative Background Lighting Gradients */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-gradient-to-tr from-indigo-600/20 via-purple-600/15 to-transparent blur-[120px] rounded-full" />
-        <div className="absolute top-[400px] -left-40 w-[400px] h-[400px] bg-blue-600/10 blur-[140px] rounded-full" />
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
-        {/* Hero Section */}
-        <div className="text-center max-w-3xl mx-auto mb-12 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Community Academic Hub</span>
+    <div className="min-h-[calc(100vh-4.5rem)] bg-[#f5f2e9] pb-20">
+      <header className="relative overflow-hidden border-b border-[#dedbd1] bg-[#eee9dc]">
+        <div className="paper-grain pointer-events-none absolute inset-0 opacity-30" />
+        <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-end gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1fr_280px] lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <div className="mb-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.19em] text-[#927444]">
+              <Sparkles className="h-4 w-4" /> The student knowledge exchange
+            </div>
+            <h1 className="editorial-heading max-w-3xl text-5xl leading-[1.04] text-[#23343a] sm:text-6xl lg:text-7xl">
+              Good notes are <span className="italic text-[#42685c]">meant to be shared.</span>
+            </h1>
+            <p className="mt-6 max-w-2xl text-sm leading-7 text-[#687478] sm:text-base">
+              Browse a growing collection of course notes, study guides, and useful resources — shared by students, for students.
+            </p>
           </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Elevate your study with <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-indigo-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
-              verified peer notes
-            </span>
-          </h1>
-
-          <p className="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">
-            Discover semester guides, verified lab records, and high-scoring notes. Earn credits while helping your peers excel.
-          </p>
+          <div className="relative hidden min-h-44 items-end border-l border-[#c9c0ab] pl-7 lg:flex">
+            <div className="absolute left-7 top-1 h-20 w-20 rounded-full border border-[#ad8950]/35" />
+            <div className="absolute left-12 top-6 h-20 w-20 rounded-full border border-[#ad8950]/35" />
+            <div className="relative pb-1">
+              <BookOpen className="mb-3 h-5 w-5 text-[#ad8950]" strokeWidth={1.5} />
+              <p className="editorial-heading text-2xl text-[#35464a]">Learn together.</p>
+              <p className="mt-1 text-xs text-[#818780]">A library made by your peers.</p>
+            </div>
+          </div>
         </div>
+      </header>
 
-        {/* Filter and Search Bar Dock */}
-        <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-xl p-4 sm:p-5 rounded-3xl shadow-2xl mb-12 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <div className="md:col-span-6 relative">
-              <Search className="absolute left-4 top-3.5 text-slate-500 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by topic, subject, or keywords..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-slate-800 bg-slate-950/60 focus:bg-slate-950 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-transparent text-sm transition"
-              />
-            </div>
-
-            <div className="md:col-span-3">
-              <select
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-                className="w-full py-2.5 px-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 focus:bg-slate-950 text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 text-sm transition cursor-pointer"
-              >
-                <option value="" className="bg-slate-900">All Semesters</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                  <option key={s} value={s} className="bg-slate-900">Semester {s}</option>
-                ))}
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="relative z-10 -mt-5 rounded-2xl border border-[#dedbd1] bg-[#fffefa] p-4 shadow-[0_12px_30px_rgba(58,54,43,0.07)] sm:p-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_190px_210px]">
+            <label className="relative block">
+              <span className="sr-only">Search study materials</span>
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#89918b]" />
+              <input type="text" placeholder="Search a subject, topic, or keyword…" value={search} onChange={(e) => { setLoading(true); setSearch(e.target.value); }} className="classic-input py-3 pl-11 pr-4 text-sm" />
+            </label>
+            <label>
+              <span className="sr-only">Filter by semester</span>
+              <select value={semester} onChange={(e) => { setLoading(true); setSemester(e.target.value); }} className="classic-input cursor-pointer px-3.5 py-3 text-sm">
+                <option value="">All semesters</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => <option key={item} value={item}>Semester {item}</option>)}
               </select>
-            </div>
-
-            <div className="md:col-span-3">
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="w-full py-2.5 px-3.5 rounded-2xl border border-slate-800 bg-slate-950/60 focus:bg-slate-950 text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 text-sm font-medium transition cursor-pointer"
-              >
-                <option value="latest" className="bg-slate-900">Sort by: Latest</option>
-                <option value="upvotes" className="bg-slate-900">Sort by: Top Upvoted</option>
-                <option value="popular" className="bg-slate-900">Sort by: Most Downloaded</option>
+            </label>
+            <label>
+              <span className="sr-only">Sort resources</span>
+              <select value={sort} onChange={(e) => { setLoading(true); setSort(e.target.value); }} className="classic-input cursor-pointer px-3.5 py-3 text-sm">
+                <option value="latest">Recently added</option>
+                <option value="upvotes">Most appreciated</option>
+                <option value="popular">Most downloaded</option>
               </select>
-            </div>
+            </label>
           </div>
-
-          {/* Department Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto pt-1 no-scrollbar">
-            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 mr-1">
-              <Filter className="w-3.5 h-3.5 text-slate-500" /> Dept:
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#eeeae1] pt-4">
+            <span className="mr-1 inline-flex items-center gap-1.5 text-xs font-semibold text-[#818780]">
+              <Filter className="h-3.5 w-3.5" /> Department
             </span>
             {departments.map((dept) => (
-              <button
-                key={dept}
-                onClick={() => setDepartment(dept)}
-                className={`px-3.5 py-1.5 text-xs font-medium rounded-xl whitespace-nowrap transition-all duration-200 ${
-                  department === dept
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-              >
+              <button key={dept} onClick={() => { setLoading(true); setDepartment(dept); }} className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                department === dept
+                  ? 'border-[#244b43] bg-[#244b43] text-white'
+                  : 'border-[#e1ded5] bg-[#fbfaf6] text-[#687478] hover:border-[#9cae9f] hover:text-[#244b43]'
+              }`}>
                 {dept}
               </button>
             ))}
             {activeTag && (
-              <button
-                onClick={() => setActiveTag('')}
-                className="px-3 py-1 text-xs bg-indigo-500/20 text-indigo-300 rounded-xl font-semibold border border-indigo-500/30 hover:bg-indigo-500/30 transition"
-              >
-                #{activeTag} ✕
+              <button onClick={() => { setLoading(true); setActiveTag(''); }} className="rounded-full border border-[#c9b986] bg-[#f2ead6] px-3 py-1.5 text-xs font-semibold text-[#68542e]">
+                #{activeTag} ×
               </button>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Notes Feed Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-64 rounded-3xl bg-slate-900/40 border border-slate-800/80 animate-pulse p-6 flex flex-col justify-between">
-                <div className="space-y-3">
-                  <div className="w-20 h-5 bg-slate-800 rounded-lg" />
-                  <div className="w-3/4 h-6 bg-slate-800 rounded-lg" />
-                  <div className="w-1/2 h-4 bg-slate-800/60 rounded-lg" />
-                </div>
-                <div className="h-10 bg-slate-800/50 rounded-xl" />
-              </div>
-            ))}
+        <section className="pt-10">
+          <div className="mb-5 flex items-end justify-between border-b border-[#d9d5ca] pb-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ad8950]">From the community</p>
+              <h2 className="editorial-heading mt-1 text-3xl text-[#23343a]">The collection</h2>
+            </div>
+            <p className="text-xs text-[#818780]">{loading ? 'Finding resources…' : `${notes.length} ${notes.length === 1 ? 'resource' : 'resources'}`}</p>
           </div>
-        ) : notes.length === 0 ? (
-          <div className="text-center py-24 bg-slate-900/40 border border-slate-800/80 rounded-3xl p-8 backdrop-blur-sm max-w-lg mx-auto">
-            <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-slate-200">No notes found</h3>
-            <p className="text-sm text-slate-500 mt-1">Try switching filters or be the first to share notes for this category.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {notes.map((note) => {
-              const hasUpvoted = user && note.upvotes?.includes(user._id);
-              const isBookmarked = savedNoteIds.includes(note._id);
 
-              return (
-                <div
-                  key={note._id}
-                  className="group relative bg-slate-900/60 hover:bg-slate-900/90 border border-slate-800/80 hover:border-indigo-500/40 rounded-3xl p-6 shadow-xl hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 flex flex-col justify-between backdrop-blur-sm hover:-translate-y-1"
-                >
-                  <div>
-                    {/* Header: Semester Tag & Department */}
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-[11px] font-bold text-indigo-300 bg-indigo-500/15 border border-indigo-500/25 px-2.5 py-1 rounded-lg">
-                        Sem {note.semester}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-slate-400 font-medium px-2 py-0.5 rounded-md bg-slate-800/50">
-                          {note.department}
-                        </span>
-                        <button
-                          onClick={() => handleToggleBookmark(note._id)}
-                          className={`p-1.5 rounded-xl transition ${
-                            isBookmarked
-                              ? 'text-amber-400 bg-amber-400/15'
-                              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
-                          }`}
-                          title={isBookmarked ? 'Remove bookmark' : 'Bookmark note'}
-                        >
-                          <Bookmark className="w-4 h-4" fill={isBookmarked ? 'currentColor' : 'none'} />
+          {loading ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <div key={item} className="h-64 animate-pulse rounded-2xl border border-[#e4e0d6] bg-[#eeece4]" />
+              ))}
+            </div>
+          ) : notes.length === 0 ? (
+            <div className="paper-panel mx-auto max-w-xl rounded-2xl px-6 py-16 text-center">
+              <BookOpen className="mx-auto h-10 w-10 text-[#ad8950]" strokeWidth={1.3} />
+              <h3 className="editorial-heading mt-4 text-2xl text-[#23343a]">A page yet to be filled.</h3>
+              <p className="mt-2 text-sm leading-6 text-[#687478]">No resources match those filters. Try another subject, or be the first to share.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {notes.map((note, index) => {
+                const hasUpvoted = user && note.upvotes?.includes(user._id);
+                const isBookmarked = savedNoteIds.includes(note._id);
+                const accents = ['border-t-[#789080]', 'border-t-[#ad8950]', 'border-t-[#8a7772]'];
+                return (
+                  <article key={note._id} className={`group flex min-h-[310px] flex-col justify-between rounded-2xl border border-[#e1ded5] border-t-[3px] ${accents[index % accents.length]} bg-[#fffefa] p-5 shadow-[0_6px_20px_rgba(58,54,43,0.035)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_16px_30px_rgba(58,54,43,0.09)] sm:p-6`}>
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-[#f0eee6] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#687478]">
+                          <span className="text-[#ad8950]">№</span> Semester {note.semester}
+                        </div>
+                        <button onClick={() => handleToggleBookmark(note._id)} className={`rounded-full p-2 transition ${isBookmarked ? 'bg-[#f1ead9] text-[#9a7946]' : 'text-[#a1a39c] hover:bg-[#f1ead9] hover:text-[#9a7946]'}`} title={isBookmarked ? 'Remove bookmark' : 'Bookmark note'} aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark note'}>
+                          <Bookmark className="h-4 w-4" fill={isBookmarked ? 'currentColor' : 'none'} />
+                        </button>
+                      </div>
+
+                      <button onClick={() => handleOpenPreview(note)} className="mt-5 block text-left">
+                        <h3 className="editorial-heading line-clamp-2 text-[1.65rem] leading-tight text-[#23343a] transition group-hover:text-[#42685c]">{note.title}</h3>
+                        <p className="mt-2 text-sm font-medium text-[#687478]">{note.subject}</p>
+                      </button>
+
+                      {note.tags?.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-1.5">
+                          {note.tags.map((tag, tagIndex) => (
+                            <button key={`${tag}-${tagIndex}`} onClick={() => setActiveTag(tag)} className="rounded-full border border-[#e6e2d8] px-2.5 py-1 text-[10px] text-[#818780] transition hover:border-[#ad8950]/60 hover:text-[#795f37]">
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-5 space-y-2 border-t border-[#eeeae1] pt-4 text-xs text-[#818780]">
+                        <div className="flex items-center gap-2"><School className="h-3.5 w-3.5 text-[#ad8950]" /><span className="truncate">{note.uploadedBy?.college || 'Engineering Institute'}</span></div>
+                        <div className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-[#ad8950]" /><span>Shared by {note.uploadedBy?.name || 'A fellow student'}</span></div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between border-t border-[#eeeae1] pt-4">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleToggleUpvote(note._id)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${hasUpvoted ? 'border-[#d7aaa0] bg-[#f7e9e4] text-[#914c3f]' : 'border-[#e1ded5] text-[#687478] hover:border-[#d7aaa0] hover:text-[#914c3f]'}`}>
+                          <Heart className="h-3.5 w-3.5" fill={hasUpvoted ? 'currentColor' : 'none'} /> {note.upvotes?.length || 0}
+                        </button>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-[#818780]"><Download className="h-3.5 w-3.5" /> {note.downloadCount || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleOpenPreview(note)} className="rounded-full p-2 text-[#818780] transition hover:bg-[#f0eee6] hover:text-[#244b43]" title="Preview PDF" aria-label="Preview PDF"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => handleInAppDownload(note)} className="inline-flex items-center gap-1.5 rounded-full bg-[#244b43] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#193a34]">
+                          Get notes <ArrowUpRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </main>
 
-                    {/* Note Title */}
-                    <h3
-                      onClick={() => handleOpenPreview(note)}
-                      className="font-bold text-lg text-slate-100 group-hover:text-indigo-300 transition-colors cursor-pointer line-clamp-1 flex items-center gap-1.5"
-                    >
-                      <span>{note.title}</span>
-                      <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400" />
-                    </h3>
-
-                    <p className="text-xs font-medium text-slate-400 mt-1 line-clamp-1">
-                      {note.subject}
-                    </p>
-
-                    {/* Tags */}
-                    {note.tags?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {note.tags.map((t, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setActiveTag(t)}
-                            className="text-[11px] bg-slate-800/70 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-300 px-2 py-0.5 rounded-md font-medium transition"
-                          >
-                            #{t}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Metadata Footer */}
-                    <div className="mt-5 pt-4 border-t border-slate-800/60 space-y-1.5 text-xs text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <School className="w-3.5 h-3.5 text-slate-500" />
-                        <span className="truncate">{note.uploadedBy?.college || 'Engineering Institute'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                        <span>By {note.uploadedBy?.name || 'Anonymous Peer'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Bar */}
-                  <div className="mt-6 pt-4 border-t border-slate-800/60 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleToggleUpvote(note._id)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition ${
-                          hasUpvoted
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                            : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                        }`}
-                      >
-                        <Heart className="w-3.5 h-3.5" fill={hasUpvoted ? 'currentColor' : 'none'} />
-                        <span>{note.upvotes?.length || 0}</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleOpenPreview(note)}
-                        className="p-2 text-slate-400 hover:text-indigo-300 hover:bg-slate-800/80 rounded-xl transition"
-                        title="Preview PDF"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => handleInAppDownload(note)}
-                      className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold px-4 py-2 rounded-xl transition shadow-md shadow-indigo-600/20 active:scale-95"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <PdfPreviewModal
-        note={selectedNote}
-        isOpen={isPreviewOpen}
-        onClose={handleClosePreview}
-        onDownload={handleInAppDownload}
-      />
-
-      <OutOfCreditsModal
-        isOpen={isOutOfCreditsOpen}
-        onClose={() => setIsOutOfCreditsOpen(false)}
-      />
+      <PdfPreviewModal note={selectedNote} isOpen={isPreviewOpen} onClose={handleClosePreview} onDownload={handleInAppDownload} />
+      <OutOfCreditsModal isOpen={isOutOfCreditsOpen} onClose={() => setIsOutOfCreditsOpen(false)} />
     </div>
   );
 }
