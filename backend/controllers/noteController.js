@@ -279,7 +279,10 @@ export const getNoteFile = async (req, res) => {
     }
 
     await fs.promises.access(filePath, fs.constants.R_OK);
-    return res.type('application/pdf').sendFile(filePath);
+    return res
+      .type('application/pdf')
+      .set('Content-Disposition', 'inline')
+      .sendFile(filePath);
   } catch (error) {
     if (error.code === 'ENOENT') {
       return res.status(404).json({ message: 'Resource file not found.' });

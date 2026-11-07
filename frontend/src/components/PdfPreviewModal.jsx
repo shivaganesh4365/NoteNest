@@ -1,37 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import API from '../api/client';
 import { X, Download, FileText, School, Calendar } from 'lucide-react';
 
 export default function PdfPreviewModal({ note, isOpen, onClose, onDownload }) {
   const [preview, setPreview] = useState({ noteId: null, fileUrl: '', error: '' });
+  const objectUrlRef = useRef(null);
+  const activeRequestRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen || !note?._id) {
       return undefined;
     }
 
-    let objectUrl;
-    let cancelled = false;
+    const request = {};
+    activeRequestRef.current = request;
+    const controller = new AbortController();
+    const noteId = note._id;
 
-    API.get(`/notes/${note._id}/file`, { responseType: 'blob' })
-      .then(({ data }) => {
-        if (cancelled) return;
-        objectUrl = window.URL.createObjectURL(data);
-        setPreview({ noteId: note._id, fileUrl: objectUrl, error: '' });
+    API.get(`/notes/${noteId}/file`, {
+      responseType: 'blob',
+      signal: controller.signal,
+      headers: { Accept: 'application/pdf' }
+    })
+      .then(async ({ data }) => {
+        if (activeRequestRef.current !== request) return;
+        const signature = await data.slice(0, 5).text();
+        if (activeRequestRef.current !== request) return;
+        if (signature !== '%PDF-') {
+          throw new Error('The server response is not a valid PDF file.');
+        }
+
+        const pdfBlob = data.type === 'application/pdf'
+          ? data
+          : new Blob([data], { type: 'application/pdf' });
+        objectUrlRef.current = window.URL.createObjectURL(pdfBlob);
+        setPreview({ noteId, fileUrl: objectUrlRef.current, error: '' });
       })
-      .catch((error) => {
-        if (!cancelled) {
-          setPreview({
-            noteId: note._id,
-            fileUrl: '',
-            error: error.response?.data?.message || 'Unable to load this PDF preview.'
-          });
+      .catch(async (error) => {
+        if (activeRequestRef.current === request && error.name !== 'CanceledError') {
+          let message = error.message || 'Unable to load this PDF preview.';
+          const responseData = error.response?.data;
+          if (responseData instanceof Blob) {
+            try {
+              const responseText = await responseData.text();
+              const responseJson = JSON.parse(responseText);
+              message = responseJson.message || message;
+            } catch {
+              // Keep the original error when the response is not a JSON error.
+            }
+          } else if (responseData?.message) {
+            message = responseData.message;
+          }
+
+          setPreview({ noteId, fileUrl: '', error: message });
         }
       });
 
     return () => {
-      cancelled = true;
-      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+      if (activeRequestRef.current === request) {
+        activeRequestRef.current = null;
+      }
+      controller.abort();
+      if (objectUrlRef.current) {
+        window.URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
     };
   }, [isOpen, note?._id]);
 
